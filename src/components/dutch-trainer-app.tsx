@@ -277,7 +277,7 @@ export function DutchTrainerApp() {
         text: `Expected: ${practiceItem.expected}`,
         diffTokens: [],
         details: []
-      } as any;
+      };
     }
 
     // Only increment done counter once per question
@@ -593,9 +593,9 @@ export function DutchTrainerApp() {
                           {practiceFeedback.details.map((detail, idx) => (
                             <div key={idx} style={{ marginBottom: "8px", fontSize: "0.9rem" }}>
                               <div style={{ display: "flex", gap: "12px", alignItems: "start" }}>
-                                <span style={{ color: "var(--bad)", fontWeight: 600 }}>"{detail.yourWord}"</span>
+                                <span style={{ color: "var(--bad)", fontWeight: 600 }}>&quot;{detail.yourWord}&quot;</span>
                                 <span style={{ color: "var(--muted)" }}>→</span>
-                                <span style={{ color: "var(--ok)", fontWeight: 600 }}>"{detail.correctWord}"</span>
+                                <span style={{ color: "var(--ok)", fontWeight: 600 }}>&quot;{detail.correctWord}&quot;</span>
                               </div>
                               <div style={{ marginLeft: "4px", color: "var(--muted)", fontSize: "0.85rem", marginTop: "4px" }}>
                                 {detail.explanation}
@@ -723,7 +723,7 @@ export function DutchTrainerApp() {
               </div>
               {!practiceCategories.length && (
                 <div style={{ marginTop: 12, color: "var(--muted)", fontSize: "0.95rem" }}>
-                  No categories selected — choose at least one or use "Select all".
+                  No categories selected — choose at least one or use &quot;Select all&quot;.
                 </div>
               )}
             </section>

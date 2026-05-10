@@ -677,7 +677,9 @@ function withTeInfinitive(phrase: string) {
   return `${tokens.join(" ")} te ${infinitive}`;
 }
 
-function pickObjectForVerb(infinitive: string) {
+type PickedObject = (GrammarNoun & { english: string }) | { word: string; articleAllowed: boolean; article?: string; english?: string };
+
+function pickObjectForVerb(infinitive: string): PickedObject {
   const vmeta = findVerbCollocation(infinitive);
   if (vmeta?.commonObjects && vmeta.commonObjects.length) {
     const pickObj = pick(vmeta.commonObjects);
@@ -688,12 +690,12 @@ function pickObjectForVerb(infinitive: string) {
       const parts = pickObj.split(/\s+/);
       const article = parts.shift()!;
       const word = parts.join(" ");
-      return { word, articleAllowed: true, article, english: word } as any;
+      return { word, articleAllowed: true, article, english: word };
     }
-    return { word: pickObj, articleAllowed: false, english: pickObj } as any;
+    return { word: pickObj, articleAllowed: false, english: pickObj };
   }
   // fallback to a generic object noun
-  return pick(objectNouns) as any;
+  return pick(objectNouns);
 }
 
 function renderLocation(location: GrammarLocation): string {
@@ -755,7 +757,7 @@ function getSubjectHint(subject: GrammarSubject, verbForm: string, genericHint: 
 function generateStructuredSentenceInternal(category: PracticeCategory): GeneratedSentence | null {
   const subject = pick(subjects);
 
-  function postProcess(candidate: GeneratedSentence, intent: any): GeneratedSentence | null {
+  function postProcess(candidate: GeneratedSentence, intent: GrammarIntent): GeneratedSentence | null {
     // quick english spelling fixes
     function cleanEnglish(text: string) {
       const fixes: Record<string,string> = {

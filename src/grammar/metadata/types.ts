@@ -52,6 +52,7 @@ export interface GrammarNoun {
   articleAllowed: boolean;
   article?: "de" | "het" | "een";
   plural?: string;
+  english?: string;
 }
 
 export interface GrammarLocation {

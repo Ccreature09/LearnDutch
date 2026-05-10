@@ -1,4 +1,5 @@
 import { Direction, NounEntry, PracticeCategory, PracticeItem, VerbEntry } from "@/lib/types";
+import { GrammarIntent } from "../grammar/metadata/types";
 import {
   becauseReasons,
   datClauseContents,
@@ -1251,7 +1252,7 @@ function sentenceIsReferenceComplete(sentence: SentencePayload) {
   return sentenceUsesKnownVocabulary(sentence.nl, "nl") && sentenceUsesKnownVocabulary(sentence.en, "en");
 }
 
-function sentencePassesHardRules(sentence: SentencePayload, intent?: any): boolean {
+function sentencePassesHardRules(sentence: SentencePayload, intent?: GrammarIntent): boolean {
   if (!sentenceIsReferenceComplete(sentence)) return false;
 
   const nl = sentence.nl.toLowerCase();

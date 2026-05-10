@@ -152,7 +152,7 @@ export interface ValidatorConfig {
   categories: string[];
   enabled: boolean;
   priority: 1 | 2 | 3;
-  options?: { [key: string]: any };
+  options?: { [key: string]: unknown };
 }
 
 /**

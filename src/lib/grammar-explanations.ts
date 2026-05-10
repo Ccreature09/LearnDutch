@@ -7,11 +7,13 @@
 
 import { GrammarError } from './grammar-types';
 
-/**
- * Explanation templates for each error type
- * Used to generate user-friendly educational messages
- */
-export const explanationTemplates = {
+type Template = {
+  message?: string | ((...args: string[]) => string);
+  example?: string | ((...args: string[]) => string);
+  tip?: string;
+};
+
+export const explanationTemplates: Record<string, Template> = {
   // ARTICLE ERRORS
   article_uncountable_no_article: {
     message: (noun: string) =>
@@ -179,9 +181,11 @@ export function buildExplanation(
   errorType: string,
   params: { [key: string]: string | undefined } = {}
 ): string {
-  const template = (explanationTemplates as any)[errorType];
+  const template = explanationTemplates[errorType];
   if (!template) {
-    return explanationTemplates.unexpected_difference.message();
+    const fallback = explanationTemplates.unexpected_difference?.message;
+    if (typeof fallback === 'function') return fallback();
+    return typeof fallback === 'string' ? fallback : 'Grammar error detected.';
   }
 
   try {
@@ -213,7 +217,8 @@ export function buildExplanation(
 
     return messages.join('\n');
   } catch (error) {
-    return template.message?.() || 'Grammar error detected.';
+    if (typeof template.message === 'function') return template.message();
+    return template.message || 'Grammar error detected.';
   }
 }
 
@@ -221,7 +226,7 @@ export function buildExplanation(
  * Quick message for a specific error type
  */
 export function getQuickMessage(errorType: string, ...params: string[]): string {
-  const template = (explanationTemplates as any)[errorType];
+  const template = explanationTemplates[errorType];
   if (!template?.message) return 'Grammar error detected.';
 
   try {
@@ -237,7 +242,7 @@ export function getQuickMessage(errorType: string, ...params: string[]): string 
  * Get tip for error type
  */
 export function getTip(errorType: string): string | undefined {
-  return (explanationTemplates as any)[errorType]?.tip;
+  return explanationTemplates[errorType]?.tip;
 }
 
 /**

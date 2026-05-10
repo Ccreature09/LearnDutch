@@ -1,5 +1,6 @@
 import { GeneratedSentence } from "../sentence-generation/generator";
 import { findVerbCollocation, findNounCollocation } from "./collocations";
+import { GrammarIntent } from "../grammar/metadata/types";
 
 export type QualityScores = {
   grammarScore: number;
@@ -9,12 +10,12 @@ export type QualityScores = {
   overall: number;
 };
 
-export function scoreCandidate(candidate: { dutch: string; english: string }, intent: any): QualityScores {
+export function scoreCandidate(candidate: { dutch: string; english: string }, intent?: GrammarIntent): QualityScores {
   // Start optimistic
-  let grammarScore = 1;
+  const grammarScore = 1;
   let semanticScore = 1;
   let naturalnessScore = 1;
-  let educationalScore = 1;
+  const educationalScore = 1;
 
   // 1) Verb requirements
   try {
@@ -40,7 +41,9 @@ export function scoreCandidate(candidate: { dutch: string; english: string }, in
     }
 
     // 2) Adjective-noun compatibility
-    const noun = intent?.object?.word ?? intent?.location?.noun?.word ?? intent?.object;
+    const noun = typeof intent?.object === 'string'
+      ? intent.object
+      : intent?.object?.word ?? intent?.location?.noun?.word;
     const adjMatch = candidate.dutch.match(/\b(is|zijn)\s+([^.]+)/);
     if (noun && adjMatch) {
       const nmeta = findNounCollocation(noun);

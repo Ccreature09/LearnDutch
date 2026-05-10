@@ -1,9 +1,10 @@
 import { generateStructuredSentence } from "../sentence-generation/generator";
+import { PracticeCategory } from "../lib/types";
 
-function sample(category: string, iterations = 200) {
+function sample(category: PracticeCategory, iterations = 200) {
   const seen = new Set<string>();
   for (let i = 0; i < iterations; i++) {
-    const s = generateStructuredSentence(category as any);
+    const s = generateStructuredSentence(category);
     if (!s) continue;
     seen.add(s.dutch);
   }
