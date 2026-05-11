@@ -1,5 +1,5 @@
 import { GeneratedSentence } from "../sentence-generation/generator";
-import { findVerbCollocation, findNounCollocation } from "./collocations";
+import { findVerbCollocation, findNounCollocation, getVerbComplementRequirements } from "./collocations";
 import { GrammarIntent } from "../grammar/metadata/types";
 
 export type QualityScores = {
@@ -22,6 +22,7 @@ export function scoreCandidate(candidate: { dutch: string; english: string }, in
     const verb = intent?.verb?.infinitive;
     if (verb) {
       const vmeta = findVerbCollocation(verb);
+      const requirements = getVerbComplementRequirements(verb);
       if (vmeta) {
         if (vmeta.requiresDirectObject) {
           const hasObject = Boolean(intent.object || candidate.dutch.match(/\b(de|het|een)\s+\w+/));
@@ -31,11 +32,23 @@ export function scoreCandidate(candidate: { dutch: string; english: string }, in
           const prep = vmeta.requiresPreposition;
           if (!candidate.dutch.includes(` ${prep} `) && !candidate.dutch.includes(`${prep} `)) semanticScore *= 0.2;
         }
+        if (vmeta.requiresObjectOrClause) {
+          const hasClause = /\b(dat|of|omdat|terwijl|want)\b/.test(candidate.dutch);
+          const hasObject = Boolean(intent.object || candidate.dutch.match(/\b(de|het|een)\s+\w+/));
+          if (!hasClause && !hasObject) semanticScore *= 0.15;
+        }
         if (vmeta.naturalLocationRelations && intent.location) {
           // prefer naar/door for movement verbs; penalize 'in de' when movement implied
           if (/\b(in de|in het)\b/.test(candidate.dutch)) {
             naturalnessScore *= 0.3;
           }
+        }
+      }
+
+      if (requirements.includes("infinitive")) {
+        const tokens = candidate.dutch.toLowerCase().split(/\s+/);
+        if (tokens.length < 4) {
+          semanticScore *= 0.1;
         }
       }
     }
@@ -61,6 +74,12 @@ export function scoreCandidate(candidate: { dutch: string; english: string }, in
       // crude rule: if adjective is age words, don't accept homework reason
       if (adj && ['oud','jong'].includes(adj)) {
         if (candidate.dutch.includes('huiswerk') || candidate.dutch.includes('het huiswerk')) semanticScore *= 0.2;
+      }
+    }
+
+    if (intent?.grammarType === 'questions-inversion' || intent?.grammarType === 'fronted-inversion') {
+      if (/(\bwil\b|\bmoet\b|\bkan\b|\bmag\b|\bzal\b|\bhoef\b|\bdurf\b)/.test(candidate.dutch) && !/\b(te|dat|naar|op|mee|uit|aan)\b/.test(candidate.dutch)) {
+        semanticScore *= 0.2;
       }
     }
 

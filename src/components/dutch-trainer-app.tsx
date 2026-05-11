@@ -132,6 +132,7 @@ export function DutchTrainerApp() {
   const [flashcardQueue, setFlashcardQueue] = useState<string[]>([]);
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [showFlashAnswer, setShowFlashAnswer] = useState(false);
+  const [flashcardFocusMode, setFlashcardFocusMode] = useState(false);
 
   const trackerRef = useRef(new AdaptiveLearningTracker(loadAdaptiveProfile()));
   const [adaptiveProfile, setAdaptiveProfile] = useState<AdaptiveProfile>(
@@ -217,6 +218,33 @@ export function DutchTrainerApp() {
   useEffect(() => {
     setShowFlashAnswer(false);
   }, [direction]);
+
+  useEffect(() => {
+    if (flashcardFocusMode) {
+      setShowFlashAnswer(false);
+    }
+  }, [flashcardFocusMode]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setFlashcardFocusMode(false);
+      }
+    }
+
+    if (flashcardFocusMode) {
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+
+    return undefined;
+  }, [flashcardFocusMode]);
+
+  useEffect(() => {
+    if (tab !== "flashcards") {
+      setFlashcardFocusMode(false);
+    }
+  }, [tab]);
 
   const currentDrillQuestion = drillQuestions[drillIndex] ?? null;
 
@@ -853,238 +881,466 @@ export function DutchTrainerApp() {
 
           {tab === "flashcards" && (
             <section>
-              <div
-                style={{
-                  padding: 22,
-                  borderRadius: 18,
-                  border: "1px solid var(--border)",
-                  background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.95))",
-                  boxShadow: "0 16px 40px rgba(15, 23, 42, 0.08)",
-                  marginBottom: 16
-                }}
-              >
-                <h3 style={{ marginTop: 0, marginBottom: 6 }}>Flashcards</h3>
-                <p className="muted" style={{ marginTop: 0, marginBottom: 18, lineHeight: 1.5 }}>
-                  Fast vocabulary review with category filters, infinite looping, and lightweight adaptive spacing.
-                </p>
-
-                <div className="row" style={{ marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span className="muted">Category</span>
-                    <select value={deck} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDeck(e.target.value as DeckType)}>
-                      {FLASHCARD_DECK_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
-                          {option === "all" ? "All" : FLASHCARD_GROUP_LABEL[option]}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span className="muted">Mode</span>
-                    <select value={flashcardMode} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFlashcardMode(e.target.value as FlashcardMode)}>
-                      <option value="infinite">Infinite repetition</option>
-                      <option value="spaced">Spaced infinite repetition</option>
-                    </select>
-                  </label>
-                  <button className="btn small" onClick={exportFlashcards} style={{ background: "rgba(59, 130, 246, 0.12)", borderColor: "rgba(59, 130, 246, 0.35)" }}>
-                    Export JSON
-                  </button>
-                  <button className="btn small" onClick={clearAllSessionData} style={{ background: "rgba(239, 68, 68, 0.12)", borderColor: "rgba(239, 68, 68, 0.35)" }}>
-                    Clear session data
-                  </button>
-                </div>
-
-                <div className="stats" style={{ marginBottom: 16 }}>
-                  <div className="stat">Cards: {filteredFlashcards.length}</div>
-                  <div className="stat">Loop size: {flashcardQueue.length}</div>
-                  <div className="stat">Reviewed today: {reviewedToday}</div>
-                  <div className="stat">Mode: {flashcardMode === "infinite" ? "Infinite" : "Spaced infinite"}</div>
-                </div>
-
-                {currentFlashcard ? (
-                  <div
-                    style={{
-                      borderRadius: 20,
-                      padding: 22,
-                      background: "linear-gradient(135deg, rgba(15,23,42,0.96), rgba(30,41,59,0.94))",
-                      color: "#f8fafc",
-                      border: "1px solid rgba(148,163,184,0.25)",
-                      minHeight: 320,
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                      gap: 20
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 8,
-                          fontSize: 12,
-                          fontWeight: 700,
-                          letterSpacing: "0.08em",
-                          textTransform: "uppercase",
-                          padding: "6px 10px",
-                          borderRadius: 999,
-                          background: "rgba(59, 130, 246, 0.18)",
-                          color: "#bfdbfe",
-                          marginBottom: 18
-                        }}
-                      >
-                        {currentFlashcard.group === "modal_verbs" ? "Modal verb" : FLASHCARD_GROUP_LABEL[currentFlashcard.group as Exclude<DeckType, "all">] ?? currentFlashcard.group}
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#93c5fd", marginBottom: 8 }}>
-                        {getFlashcardSides(currentFlashcard, direction).frontLabel} side
-                      </div>
-                      <div style={{ fontSize: 34, lineHeight: 1.05, fontWeight: 800, letterSpacing: "-0.03em" }}>
-                        {getFlashcardSides(currentFlashcard, direction).front}
-                      </div>
-                      <div style={{ marginTop: 14, color: "rgba(226, 232, 240, 0.72)", fontSize: 15 }}>
-                        {(() => {
-                          const tags = currentFlashcard.extra?.tags ?? [] as string[];
-                          if (currentFlashcard.type === "verb") {
-                            // For verb fronts, avoid showing Dutch auxiliary or infinitive.
-                            const groupTag = tags.length ? tags[0] : undefined;
-                            return groupTag ? groupTag : "Tap reveal to check the answer.";
-                          }
-                          return tags.length ? tags.join(" • ") : "Tap reveal to check the answer.";
-                        })()}
-                      </div>
-
-                      {showFlashAnswer && (
-                        <div style={{ marginTop: 20 }}>
-                          <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: "#cbd5e1" }}>
-                            {getFlashcardSides(currentFlashcard, direction).backLabel} side
-                          </div>
-                          <div style={{ fontSize: 20, lineHeight: 1.5, fontWeight: 500 }}>
-                            {getFlashcardSides(currentFlashcard, direction).back}
-                          </div>
-
-                          {currentFlashcard.extra?.conjugations?.length ? (
-                            <div style={{ marginTop: 18 }}>
-                              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, color: "#bfdbfe" }}>Present tense</div>
-                              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 10px", background: "rgba(15, 23, 42, 0.38)", borderRadius: 14, overflow: "hidden", padding: 8 }}>
-                                <tbody>
-                                  {currentFlashcard.extra.conjugations.map((row) => (
-                                    <tr key={`${row.left.label}-${row.right.label}`}>
-                                      <td style={{ width: "50%", paddingRight: 6 }}>
-                                        <div style={{ borderRadius: 12, padding: "10px 12px", background: "rgba(30,41,59,0.8)", border: "1px solid rgba(148,163,184,0.16)" }}>
-                                          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#93c5fd", marginBottom: 4 }}>
-                                            {row.left.label}
-                                          </div>
-                                          <div style={{ fontSize: 18, color: "#f8fafc", fontWeight: 800 }}>{row.left.form}</div>
-                                        </div>
-                                      </td>
-                                      <td style={{ width: "50%", paddingLeft: 6 }}>
-                                        <div style={{ borderRadius: 12, padding: "10px 12px", background: "rgba(30,41,59,0.8)", border: "1px solid rgba(148,163,184,0.16)" }}>
-                                          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#93c5fd", marginBottom: 4 }}>
-                                            {row.right.label}
-                                          </div>
-                                          <div style={{ fontSize: 18, color: "#f8fafc", fontWeight: 800 }}>{row.right.form}</div>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : null}
-
-                          {currentFlashcard.extra?.note ? (
-                            <div style={{ marginTop: 12, fontSize: 14, color: "#cbd5e1" }}>{currentFlashcard.extra.note}</div>
-                          ) : null}
-
-                          <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
-                            <span style={{ fontSize: 12, padding: "5px 10px", borderRadius: 999, background: "rgba(16,185,129,0.16)", color: "#a7f3d0" }}>
-                              mastery {Math.round(currentFlashcard.mastery * 100)}%
-                            </span>
-                            {currentFlashcard.extra?.article ? (
-                              <span style={{ fontSize: 12, padding: "5px 10px", borderRadius: 999, background: "rgba(251,191,36,0.16)", color: "#fde68a" }}>
-                                article {currentFlashcard.extra.article}
-                              </span>
-                            ) : null}
-                          </div>
+              {flashcardFocusMode ? (
+                <div
+                  onClick={() => setFlashcardFocusMode(false)}
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    zIndex: 80,
+                    background: "radial-gradient(circle at top, rgba(15,23,42,0.97), rgba(2,6,23,0.995) 60%)",
+                    padding: "clamp(12px, 3vw, 24px)",
+                    display: "grid",
+                    placeItems: "center"
+                  }}
+                >
+                  {currentFlashcard ? (
+                    <div
+                      onClick={(event) => event.stopPropagation()}
+                      style={{
+                        width: "min(1020px, 100%)",
+                        minHeight: "min(92dvh, 900px)",
+                        borderRadius: 28,
+                        padding: "clamp(18px, 4vw, 34px)",
+                        background: "linear-gradient(180deg, rgba(15,23,42,0.985), rgba(30,41,59,0.96))",
+                        border: "1px solid rgba(148,163,184,0.18)",
+                        boxShadow: "0 28px 80px rgba(0,0,0,0.52)",
+                        color: "#f8fafc",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        gap: 22
+                      }}
+                    >
+                      <div style={{ overflowY: "auto", paddingRight: 4 }}>
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 8,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            padding: "6px 10px",
+                            borderRadius: 999,
+                            background: "rgba(59, 130, 246, 0.18)",
+                            color: "#bfdbfe",
+                            marginBottom: 18
+                          }}
+                        >
+                          {currentFlashcard.group === "modal_verbs" ? "Modal verb" : FLASHCARD_GROUP_LABEL[currentFlashcard.group as Exclude<DeckType, "all">] ?? currentFlashcard.group}
                         </div>
-                      )}
-                    </div>
+                        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#93c5fd", marginBottom: 8 }}>
+                          {getFlashcardSides(currentFlashcard, direction).frontLabel} side
+                        </div>
+                        <div style={{ fontSize: "clamp(2.25rem, 5vw, 4.6rem)", lineHeight: 1.05, fontWeight: 800, letterSpacing: "-0.03em", wordBreak: "break-word" }}>
+                          {getFlashcardSides(currentFlashcard, direction).front}
+                        </div>
+                        <div style={{ marginTop: 14, color: "rgba(226, 232, 240, 0.72)", fontSize: 15, lineHeight: 1.5 }}>
+                          {(() => {
+                            const tags = currentFlashcard.extra?.tags ?? [] as string[];
+                            if (currentFlashcard.type === "verb") {
+                              const groupTag = tags.length ? tags[0] : undefined;
+                              return groupTag ? groupTag : "Tap reveal to check the answer.";
+                            }
+                            return tags.length ? tags.join(" • ") : "Tap reveal to check the answer.";
+                          })()}
+                        </div>
 
-                    <div>
-                      {showFlashAnswer ? (
-                        flashcardMode === "spaced" ? (
-                          <div className="row" style={{ flexWrap: "wrap", gap: 10 }}>
-                            <button
-                              className="btn"
-                              onClick={() => gradeCurrentCard("again")}
-                              style={{ background: "linear-gradient(135deg, #ef4444, #f97316)", color: "white", border: "none" }}
-                            >
-                              Again
-                            </button>
-                            <button
-                              className="btn"
-                              onClick={() => gradeCurrentCard("hard")}
-                              style={{ background: "linear-gradient(135deg, #f59e0b, #fbbf24)", color: "#111827", border: "none" }}
-                            >
-                              Hard
-                            </button>
-                            <button
-                              className="btn"
-                              onClick={() => gradeCurrentCard("good")}
-                              style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "white", border: "none" }}
-                            >
-                              Good
-                            </button>
-                            <button
-                              className="btn"
-                              onClick={() => gradeCurrentCard("easy")}
-                              style={{ background: "linear-gradient(135deg, #3b82f6, #06b6d4)", color: "white", border: "none" }}
-                            >
-                              Easy
-                            </button>
+                        {showFlashAnswer && (
+                          <div style={{ marginTop: 20 }}>
+                            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: "#cbd5e1" }}>
+                              {getFlashcardSides(currentFlashcard, direction).backLabel} side
+                            </div>
+                            <div style={{ fontSize: "clamp(1.55rem, 3vw, 2.4rem)", lineHeight: 1.45, fontWeight: 500, wordBreak: "break-word" }}>
+                              {getFlashcardSides(currentFlashcard, direction).back}
+                            </div>
+
+                            {currentFlashcard.extra?.conjugations?.length ? (
+                              <div style={{ marginTop: 18 }}>
+                                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, color: "#bfdbfe" }}>Present tense</div>
+                                <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 10px", background: "rgba(15, 23, 42, 0.38)", borderRadius: 14, overflow: "hidden", padding: 8 }}>
+                                  <tbody>
+                                    {currentFlashcard.extra.conjugations.map((row) => (
+                                      <tr key={`${row.left.label}-${row.right.label}`}>
+                                        <td style={{ width: "50%", paddingRight: 6 }}>
+                                          <div style={{ borderRadius: 12, padding: "10px 12px", background: "rgba(30,41,59,0.8)", border: "1px solid rgba(148,163,184,0.16)" }}>
+                                            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#93c5fd", marginBottom: 4 }}>
+                                              {row.left.label}
+                                            </div>
+                                            <div style={{ fontSize: 18, color: "#f8fafc", fontWeight: 800 }}>{row.left.form}</div>
+                                          </div>
+                                        </td>
+                                        <td style={{ width: "50%", paddingLeft: 6 }}>
+                                          <div style={{ borderRadius: 12, padding: "10px 12px", background: "rgba(30,41,59,0.8)", border: "1px solid rgba(148,163,184,0.16)" }}>
+                                            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#93c5fd", marginBottom: 4 }}>
+                                              {row.right.label}
+                                            </div>
+                                            <div style={{ fontSize: 18, color: "#f8fafc", fontWeight: 800 }}>{row.right.form}</div>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : null}
+
+                            {currentFlashcard.extra?.note ? (
+                              <div style={{ marginTop: 12, fontSize: 14, color: "#cbd5e1", lineHeight: 1.5 }}>{currentFlashcard.extra.note}</div>
+                            ) : null}
+
+                            <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                              <span style={{ fontSize: 12, padding: "5px 10px", borderRadius: 999, background: "rgba(16,185,129,0.16)", color: "#a7f3d0" }}>
+                                mastery {Math.round(currentFlashcard.mastery * 100)}%
+                              </span>
+                              {currentFlashcard.extra?.article ? (
+                                <span style={{ fontSize: 12, padding: "5px 10px", borderRadius: 999, background: "rgba(251,191,36,0.16)", color: "#fde68a" }}>
+                                  article {currentFlashcard.extra.article}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "space-between" }}>
+                        {showFlashAnswer ? (
+                          flashcardMode === "spaced" ? (
+                            <div className="row" style={{ flexWrap: "wrap", gap: 10 }}>
+                              <button
+                                className="btn"
+                                onClick={() => gradeCurrentCard("again")}
+                                style={{ background: "linear-gradient(135deg, #ef4444, #f97316)", color: "white", border: "none" }}
+                              >
+                                Again
+                              </button>
+                              <button
+                                className="btn"
+                                onClick={() => gradeCurrentCard("hard")}
+                                style={{ background: "linear-gradient(135deg, #f59e0b, #fbbf24)", color: "#111827", border: "none" }}
+                              >
+                                Hard
+                              </button>
+                              <button
+                                className="btn"
+                                onClick={() => gradeCurrentCard("good")}
+                                style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "white", border: "none" }}
+                              >
+                                Good
+                              </button>
+                              <button
+                                className="btn"
+                                onClick={() => gradeCurrentCard("easy")}
+                                style={{ background: "linear-gradient(135deg, #3b82f6, #06b6d4)", color: "white", border: "none" }}
+                              >
+                                Easy
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="row" style={{ flexWrap: "wrap", gap: 10 }}>
+                              <button
+                                className="btn"
+                                onClick={moveToNextFlashcard}
+                                style={{ background: "linear-gradient(135deg, #3b82f6, #6366f1)", color: "white", border: "none", fontWeight: 700 }}
+                              >
+                                Next Card
+                              </button>
+                              <button
+                                className="btn"
+                                onClick={() => setShowFlashAnswer(false)}
+                                style={{ background: "rgba(255,255,255,0.08)", color: "#e2e8f0", border: "1px solid rgba(148,163,184,0.25)" }}
+                              >
+                                Hide answer
+                              </button>
+                            </div>
+                          )
                         ) : (
-                          <div className="row" style={{ flexWrap: "wrap", gap: 10 }}>
+                          <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+                            <button
+                              className="btn"
+                              onClick={() => setShowFlashAnswer(true)}
+                              style={{ background: "linear-gradient(135deg, #8b5cf6, #ec4899)", color: "white", border: "none", fontWeight: 800, fontSize: 15 }}
+                            >
+                              Reveal
+                            </button>
                             <button
                               className="btn"
                               onClick={moveToNextFlashcard}
-                              style={{ background: "linear-gradient(135deg, #3b82f6, #6366f1)", color: "white", border: "none", fontWeight: 700 }}
+                              style={{ background: "rgba(255,255,255,0.08)", color: "#e2e8f0", border: "1px solid rgba(148,163,184,0.25)" }}
                             >
-                              Next Card
+                              Skip
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={(event) => event.stopPropagation()}
+                      style={{
+                        width: "min(720px, 100%)",
+                        borderRadius: 24,
+                        padding: "clamp(20px, 5vw, 30px)",
+                        background: "linear-gradient(180deg, rgba(15,23,42,0.98), rgba(30,41,59,0.95))",
+                        border: "1px solid rgba(148,163,184,0.18)",
+                        color: "#f8fafc",
+                        textAlign: "center",
+                        boxShadow: "0 24px 70px rgba(0,0,0,0.5)"
+                      }}
+                    >
+                      <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>No cards match the selected category.</div>
+                      <button
+                        className="btn"
+                        onClick={() => setFlashcardFocusMode(false)}
+                        style={{ background: "rgba(255,255,255,0.08)", color: "#e2e8f0", border: "1px solid rgba(148,163,184,0.25)" }}
+                      >
+                        Exit focus mode
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    padding: 22,
+                    borderRadius: 18,
+                    border: "1px solid var(--border)",
+                    background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.95))",
+                    boxShadow: "0 16px 40px rgba(15, 23, 42, 0.08)",
+                    marginBottom: 16
+                  }}
+                >
+                  <h3 style={{ marginTop: 0, marginBottom: 6 }}>Flashcards</h3>
+                  <p className="muted" style={{ marginTop: 0, marginBottom: 18, lineHeight: 1.5 }}>
+                    Fast vocabulary review with category filters, infinite looping, and lightweight adaptive spacing.
+                  </p>
+
+                  <div className="row" style={{ marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span className="muted">Category</span>
+                      <select value={deck} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDeck(e.target.value as DeckType)}>
+                        {FLASHCARD_DECK_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {option === "all" ? "All" : FLASHCARD_GROUP_LABEL[option]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span className="muted">Mode</span>
+                      <select value={flashcardMode} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFlashcardMode(e.target.value as FlashcardMode)}>
+                        <option value="infinite">Infinite repetition</option>
+                        <option value="spaced">Spaced infinite repetition</option>
+                      </select>
+                    </label>
+                    <button className="btn small" onClick={exportFlashcards} style={{ background: "rgba(59, 130, 246, 0.12)", borderColor: "rgba(59, 130, 246, 0.35)" }}>
+                      Export JSON
+                    </button>
+                    <button
+                      className="btn small"
+                      onClick={() => setFlashcardFocusMode((value) => !value)}
+                      style={{ background: flashcardFocusMode ? "rgba(14, 165, 233, 0.18)" : "rgba(255,255,255,0.06)", borderColor: flashcardFocusMode ? "rgba(14, 165, 233, 0.45)" : "rgba(148,163,184,0.25)", color: flashcardFocusMode ? "#e0f2fe" : "inherit" }}
+                    >
+                      {flashcardFocusMode ? "Exit focus mode" : "Focus mode"}
+                    </button>
+                    <button className="btn small" onClick={clearAllSessionData} style={{ background: "rgba(239, 68, 68, 0.12)", borderColor: "rgba(239, 68, 68, 0.35)" }}>
+                      Clear session data
+                    </button>
+                  </div>
+
+                  <div className="stats" style={{ marginBottom: 16 }}>
+                    <div className="stat">Cards: {filteredFlashcards.length}</div>
+                    <div className="stat">Loop size: {flashcardQueue.length}</div>
+                    <div className="stat">Reviewed today: {reviewedToday}</div>
+                    <div className="stat">Mode: {flashcardMode === "infinite" ? "Infinite" : "Spaced infinite"}</div>
+                  </div>
+
+                  {currentFlashcard ? (
+                    <div
+                      style={{
+                        borderRadius: 20,
+                        padding: 22,
+                        background: "linear-gradient(135deg, rgba(15,23,42,0.96), rgba(30,41,59,0.94))",
+                        color: "#f8fafc",
+                        border: "1px solid rgba(148,163,184,0.25)",
+                        minHeight: 320,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        gap: 20
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 8,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            padding: "6px 10px",
+                            borderRadius: 999,
+                            background: "rgba(59, 130, 246, 0.18)",
+                            color: "#bfdbfe",
+                            marginBottom: 18
+                          }}
+                        >
+                          {currentFlashcard.group === "modal_verbs" ? "Modal verb" : FLASHCARD_GROUP_LABEL[currentFlashcard.group as Exclude<DeckType, "all">] ?? currentFlashcard.group}
+                        </div>
+                        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#93c5fd", marginBottom: 8 }}>
+                          {getFlashcardSides(currentFlashcard, direction).frontLabel} side
+                        </div>
+                        <div style={{ fontSize: 34, lineHeight: 1.05, fontWeight: 800, letterSpacing: "-0.03em" }}>
+                          {getFlashcardSides(currentFlashcard, direction).front}
+                        </div>
+                        <div style={{ marginTop: 14, color: "rgba(226, 232, 240, 0.72)", fontSize: 15 }}>
+                          {(() => {
+                            const tags = currentFlashcard.extra?.tags ?? [] as string[];
+                            if (currentFlashcard.type === "verb") {
+                              const groupTag = tags.length ? tags[0] : undefined;
+                              return groupTag ? groupTag : "Tap reveal to check the answer.";
+                            }
+                            return tags.length ? tags.join(" • ") : "Tap reveal to check the answer.";
+                          })()}
+                        </div>
+
+                        {showFlashAnswer && (
+                          <div style={{ marginTop: 20 }}>
+                            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: "#cbd5e1" }}>
+                              {getFlashcardSides(currentFlashcard, direction).backLabel} side
+                            </div>
+                            <div style={{ fontSize: 20, lineHeight: 1.5, fontWeight: 500 }}>
+                              {getFlashcardSides(currentFlashcard, direction).back}
+                            </div>
+
+                            {currentFlashcard.extra?.conjugations?.length ? (
+                              <div style={{ marginTop: 18 }}>
+                                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, color: "#bfdbfe" }}>Present tense</div>
+                                <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 10px", background: "rgba(15, 23, 42, 0.38)", borderRadius: 14, overflow: "hidden", padding: 8 }}>
+                                  <tbody>
+                                    {currentFlashcard.extra.conjugations.map((row) => (
+                                      <tr key={`${row.left.label}-${row.right.label}`}>
+                                        <td style={{ width: "50%", paddingRight: 6 }}>
+                                          <div style={{ borderRadius: 12, padding: "10px 12px", background: "rgba(30,41,59,0.8)", border: "1px solid rgba(148,163,184,0.16)" }}>
+                                            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#93c5fd", marginBottom: 4 }}>
+                                              {row.left.label}
+                                            </div>
+                                            <div style={{ fontSize: 18, color: "#f8fafc", fontWeight: 800 }}>{row.left.form}</div>
+                                          </div>
+                                        </td>
+                                        <td style={{ width: "50%", paddingLeft: 6 }}>
+                                          <div style={{ borderRadius: 12, padding: "10px 12px", background: "rgba(30,41,59,0.8)", border: "1px solid rgba(148,163,184,0.16)" }}>
+                                            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#93c5fd", marginBottom: 4 }}>
+                                              {row.right.label}
+                                            </div>
+                                            <div style={{ fontSize: 18, color: "#f8fafc", fontWeight: 800 }}>{row.right.form}</div>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : null}
+
+                            {currentFlashcard.extra?.note ? (
+                              <div style={{ marginTop: 12, fontSize: 14, color: "#cbd5e1" }}>{currentFlashcard.extra.note}</div>
+                            ) : null}
+
+                            <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                              <span style={{ fontSize: 12, padding: "5px 10px", borderRadius: 999, background: "rgba(16,185,129,0.16)", color: "#a7f3d0" }}>
+                                mastery {Math.round(currentFlashcard.mastery * 100)}%
+                              </span>
+                              {currentFlashcard.extra?.article ? (
+                                <span style={{ fontSize: 12, padding: "5px 10px", borderRadius: 999, background: "rgba(251,191,36,0.16)", color: "#fde68a" }}>
+                                  article {currentFlashcard.extra.article}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        {showFlashAnswer ? (
+                          flashcardMode === "spaced" ? (
+                            <div className="row" style={{ flexWrap: "wrap", gap: 10 }}>
+                              <button
+                                className="btn"
+                                onClick={() => gradeCurrentCard("again")}
+                                style={{ background: "linear-gradient(135deg, #ef4444, #f97316)", color: "white", border: "none" }}
+                              >
+                                Again
+                              </button>
+                              <button
+                                className="btn"
+                                onClick={() => gradeCurrentCard("hard")}
+                                style={{ background: "linear-gradient(135deg, #f59e0b, #fbbf24)", color: "#111827", border: "none" }}
+                              >
+                                Hard
+                              </button>
+                              <button
+                                className="btn"
+                                onClick={() => gradeCurrentCard("good")}
+                                style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "white", border: "none" }}
+                              >
+                                Good
+                              </button>
+                              <button
+                                className="btn"
+                                onClick={() => gradeCurrentCard("easy")}
+                                style={{ background: "linear-gradient(135deg, #3b82f6, #06b6d4)", color: "white", border: "none" }}
+                              >
+                                Easy
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="row" style={{ flexWrap: "wrap", gap: 10 }}>
+                              <button
+                                className="btn"
+                                onClick={moveToNextFlashcard}
+                                style={{ background: "linear-gradient(135deg, #3b82f6, #6366f1)", color: "white", border: "none", fontWeight: 700 }}
+                              >
+                                Next Card
+                              </button>
+                              <button
+                                className="btn"
+                                onClick={() => setShowFlashAnswer(false)}
+                                style={{ background: "rgba(255,255,255,0.08)", color: "#e2e8f0", border: "1px solid rgba(148,163,184,0.25)" }}
+                              >
+                                Hide answer
+                              </button>
+                            </div>
+                          )
+                        ) : (
+                          <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+                            <button
+                              className="btn"
+                              onClick={() => setShowFlashAnswer(true)}
+                              style={{ background: "linear-gradient(135deg, #8b5cf6, #ec4899)", color: "white", border: "none", fontWeight: 800, fontSize: 15 }}
+                            >
+                              Reveal
                             </button>
                             <button
                               className="btn"
-                              onClick={() => setShowFlashAnswer(false)}
+                              onClick={moveToNextFlashcard}
                               style={{ background: "rgba(255,255,255,0.08)", color: "#e2e8f0", border: "1px solid rgba(148,163,184,0.25)" }}
                             >
-                              Hide answer
+                              Skip
                             </button>
                           </div>
-                        )
-                      ) : (
-                        <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-                          <button
-                            className="btn"
-                            onClick={() => setShowFlashAnswer(true)}
-                            style={{ background: "linear-gradient(135deg, #8b5cf6, #ec4899)", color: "white", border: "none", fontWeight: 800, fontSize: 15 }}
-                          >
-                            Reveal
-                          </button>
-                          <button
-                            className="btn"
-                            onClick={moveToNextFlashcard}
-                            style={{ background: "rgba(255,255,255,0.08)", color: "#e2e8f0", border: "1px solid rgba(148,163,184,0.25)" }}
-                          >
-                            Skip
-                          </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <p className="muted">No cards match the selected category.</p>
-                )}
-              </div>
+                  ) : (
+                    <p className="muted">No cards match the selected category.</p>
+                  )}
+                </div>
+              )}
             </section>
           )}
 

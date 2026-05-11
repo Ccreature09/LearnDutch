@@ -19,6 +19,7 @@ import {
 } from "../grammar/conjugation/conjugator";
 import { scoreCandidate } from "../lib/quality";
 import { findVerbCollocation, findNounCollocation } from "../lib/collocations";
+import { getVerbMetadata, isModalVerb } from "../lib/verb-database";
 
 export type GeneratedSentence = {
   english: string;
@@ -56,7 +57,26 @@ const adjectives = [
   { english: "good", dutch: "goed" },
   { english: "bad", dutch: "slecht" },
   { english: "busy", dutch: "druk" },
-  { english: "tired", dutch: "moe" }
+  { english: "tired", dutch: "moe" },
+  { english: "sick", dutch: "ziek" },
+  { english: "late", dutch: "laat" },
+  { english: "early", dutch: "vroeg" },
+  { english: "ready", dutch: "klaar" },
+  { english: "hungry", dutch: "hongerig" },
+  { english: "thirsty", dutch: "dorstig" },
+  { english: "cold", dutch: "koud" },
+  { english: "warm", dutch: "warm" },
+  { english: "right", dutch: "gelijk" },
+  { english: "wrong", dutch: "fout" },
+  { english: "alone", dutch: "alleen" },
+  { english: "afraid", dutch: "bang" },
+  { english: "angry", dutch: "boos" },
+  { english: "surprised", dutch: "verrast" },
+  { english: "proud", dutch: "trots" },
+  { english: "quiet", dutch: "stil" },
+  { english: "noisy", dutch: "luidruchtig" },
+  { english: "useful", dutch: "nuttig" },
+  { english: "interesting", dutch: "interessant" }
 ];
 
 const peopleNouns: Array<GrammarNoun & { english: string }> = [
@@ -328,6 +348,22 @@ const baseVerbs = [
   { english: "read", dutch: "lezen" },
   { english: "learn", dutch: "leren" },
   { english: "travel", dutch: "reizen" },
+  { english: "be", dutch: "zijn" },
+  { english: "have", dutch: "hebben" },
+  { english: "go", dutch: "gaan" },
+  { english: "come", dutch: "komen" },
+  { english: "want", dutch: "willen" },
+  { english: "must", dutch: "moeten" },
+  { english: "can", dutch: "kunnen" },
+  { english: "may", dutch: "mogen" },
+  { english: "know", dutch: "weten" },
+  { english: "think", dutch: "denken" },
+  { english: "stay", dutch: "blijven" },
+  { english: "find", dutch: "vinden" },
+  { english: "make", dutch: "maken" },
+  { english: "give", dutch: "geven" },
+  { english: "take", dutch: "nemen" },
+  { english: "speak", dutch: "spreken" },
   { english: "smoke", dutch: "roken" },
   { english: "be", dutch: "zijn" },
   { english: "have", dutch: "hebben" },
@@ -361,8 +397,14 @@ const baseVerbs = [
   { english: "sleep", dutch: "slapen" }
 ] as const;
 
+const movementVerbs = new Set(["lopen", "reizen", "gaan", "komen", "fietsen"]);
+const modalInfinitives = new Set(["willen", "moeten", "kunnen", "mogen", "zullen", "hoeven", "durven"]);
+const clauseVerbs = new Set(["weten", "denken", "zeggen", "vragen", "merken", "verwachten", "beseffen", "beweren", "uitleggen"]);
+const specialGenericVerbs = new Set(["zijn", "hebben", ...Array.from(modalInfinitives), ...Array.from(clauseVerbs)]);
+const genericVerbOptions = baseVerbs.filter((verb) => !specialGenericVerbs.has(verb.dutch));
+
 const frontedVerbOptions = baseVerbs.filter((verb) =>
-  ["werken", "lezen", "leren", "reizen", "lopen", "wonen", "spelen", "praten", "spreken", "luisteren", "kijken", "eten", "drinken", "slapen", "gaan", "komen", "blijven", "doen", "maken", "geven", "nemen", "vinden"].includes(verb.dutch)
+  genericVerbOptions.some((option) => option.dutch === verb.dutch)
 );
 
 const numberWords = [
@@ -467,18 +509,27 @@ const perfectVerbs = [
   { infinitive: "geven", english: "given", participle: "gegeven", auxiliary: "hebben" as const },
   { infinitive: "nemen", english: "taken", participle: "genomen", auxiliary: "hebben" as const },
   { infinitive: "vinden", english: "found", participle: "gevonden", auxiliary: "hebben" as const },
+  { infinitive: "zijn", english: "been", participle: "geweest", auxiliary: "zijn" as const },
+  { infinitive: "hebben", english: "had", participle: "gehad", auxiliary: "hebben" as const },
+  { infinitive: "kunnen", english: "been able to", participle: "gekund", auxiliary: "hebben" as const },
+  { infinitive: "moeten", english: "had to", participle: "gemoeten", auxiliary: "hebben" as const },
+  { infinitive: "willen", english: "wanted", participle: "gewild", auxiliary: "hebben" as const },
+  { infinitive: "mogen", english: "been allowed to", participle: "gemogen", auxiliary: "hebben" as const },
+  { infinitive: "weten", english: "known", participle: "geweten", auxiliary: "hebben" as const },
+  { infinitive: "denken", english: "thought", participle: "gedacht", auxiliary: "hebben" as const },
+  { infinitive: "blijven", english: "stayed", participle: "gebleven", auxiliary: "zijn" as const },
   { infinitive: "koken", english: "cooked", participle: "gekookt", auxiliary: "hebben" as const },
   { infinitive: "studeren", english: "studied", participle: "gestudeerd", auxiliary: "hebben" as const },
   { infinitive: "drinken", english: "drunk", participle: "gedronken", auxiliary: "hebben" as const },
   { infinitive: "eten", english: "eaten", participle: "gegeten", auxiliary: "hebben" as const },
   { infinitive: "komen", english: "come", participle: "gekomen", auxiliary: "zijn" as const },
-  { infinitive: "blijven", english: "stayed", participle: "gebleven", auxiliary: "zijn" as const },
   { infinitive: "lopen", english: "walked", participle: "gelopen", auxiliary: "zijn" as const },
   { infinitive: "fietsen", english: "cycled", participle: "gefietst", auxiliary: "zijn" as const },
   { infinitive: "zwemmen", english: "swum", participle: "gezwommen", auxiliary: "hebben" as const },
   { infinitive: "slapen", english: "slept", participle: "geslapen", auxiliary: "hebben" as const },
   { infinitive: "verliezen", english: "lost", participle: "verloren", auxiliary: "hebben" as const },
   { infinitive: "winnen", english: "won", participle: "gewonnen", auxiliary: "hebben" as const },
+  { infinitive: "spreken", english: "spoken", participle: "gesproken", auxiliary: "hebben" as const },
   { infinitive: "beginnen", english: "begun", participle: "begonnen", auxiliary: "zijn" as const }
 ] as const;
 
@@ -550,7 +601,11 @@ export const datMainVerbs = [
   { english: "read", dutch: "lezen" },
   { english: "tell/ask", dutch: "vragen" },
   { english: "notice", dutch: "merken" },
-  { english: "find", dutch: "vinden" }
+  { english: "find", dutch: "vinden" },
+  { english: "expect", dutch: "verwachten" },
+  { english: "realize", dutch: "beseffen" },
+  { english: "claim", dutch: "beweren" },
+  { english: "explain", dutch: "uitleggen" }
 ] as const;
 
 export const datClauseContents = [
@@ -573,7 +628,11 @@ export const datClauseContents = [
   { english: "the shop opens at eight", dutch: "de winkel om acht uur opent" },
   { english: "they have two cats", dutch: "zij twee katten hebben" },
   { english: "the soup is too salty", dutch: "de soep te zout is" },
-  { english: "I need more time", dutch: "ik meer tijd nodig heb" }
+  { english: "I need more time", dutch: "ik meer tijd nodig heb" },
+  { english: "the teacher explains the lesson", dutch: "de docent de les uitlegt" },
+  { english: "the student expects good news", dutch: "de student goed nieuws verwacht" },
+  { english: "I realize that this is important", dutch: "ik besef dat dit belangrijk is" },
+  { english: "she claims that the project is ready", dutch: "zij beweert dat het project klaar is" }
 ] as const;
 
 const demonstrativeAdjectives = [
@@ -696,6 +755,92 @@ function pickObjectForVerb(infinitive: string): PickedObject {
   }
   // fallback to a generic object noun
   return pick(objectNouns);
+}
+
+function buildComplementForVerb(verbInfinitive: string) {
+  if (modalInfinitives.has(verbInfinitive) || isModalVerb(verbInfinitive) || getVerbMetadata(verbInfinitive)?.isModal) {
+    const action = pick(modalActions);
+    return {
+      english: action.english,
+      dutch: action.dutch,
+      kind: "infinitive" as const
+    };
+  }
+
+  if (movementVerbs.has(verbInfinitive)) {
+    const destination = pick(travelDestinations);
+    return {
+      english: destination.english,
+      dutch: destination.dutch,
+      kind: "destination" as const
+    };
+  }
+
+  if (["blijven", "werken", "wonen", "leven", "staan", "zitten", "liggen"].includes(verbInfinitive)) {
+    const location = pick(frontedComplements);
+    return {
+      english: location.english,
+      dutch: location.dutch,
+      kind: "location" as const
+    };
+  }
+
+  const collocation = findVerbCollocation(verbInfinitive);
+  if (collocation?.requiresPreposition || collocation?.preferredPreposition) {
+    const prep = collocation.requiresPreposition ?? collocation.preferredPreposition;
+
+    if (prep && collocation.commonObjects?.length) {
+      const object = pick(collocation.commonObjects);
+      const englishObject = stripLeadingThe(object);
+      return {
+        english: prep === "naar" ? `to ${englishObject}` : `${prep} ${englishObject}`,
+        dutch: `${prep} ${object}`,
+        kind: `preposition:${prep}` as const
+      };
+    }
+
+    if (prep === "naar") {
+      const destination = pick(travelDestinations);
+      return {
+        english: destination.english,
+        dutch: destination.dutch,
+        kind: `preposition:${prep}` as const
+      };
+    }
+
+    const location = pick(frontedComplements.filter((item) => item.dutch.startsWith(`${prep} `)));
+    if (location) {
+      return {
+        english: location.english,
+        dutch: location.dutch,
+        kind: `preposition:${prep}` as const
+      };
+    }
+  }
+
+  if (collocation?.requiresObjectOrClause || clauseVerbs.has(verbInfinitive)) {
+    const clause = pick(datClauseContents);
+    return {
+      english: `that ${clause.english}`,
+      dutch: `dat ${clause.dutch}`,
+      kind: "clause" as const
+    };
+  }
+
+  if (collocation?.requiresDirectObject || findVerbCollocation(verbInfinitive)?.commonObjects?.length) {
+    const object = pickObjectForVerb(verbInfinitive);
+    return {
+      english: object.english ?? object.word,
+      dutch: object.articleAllowed ? `${object.article} ${object.word}` : object.word,
+      kind: "object" as const
+    };
+  }
+
+  return {
+    english: "",
+    dutch: "",
+    kind: "none" as const
+  };
 }
 
 function renderLocation(location: GrammarLocation): string {
@@ -866,18 +1011,7 @@ function generateStructuredSentenceInternal(category: PracticeCategory): Generat
     const subject = pickSubject(["person", "group"]);
     const adverb = pick(adverbs);
     const verbChoice = pick(frontedVerbOptions);
-    // If the verb implies movement, prefer destinations (naar...) instead of in-place 'in de ...'
-    const movementVerbs = ["lopen", "reizen", "gaan", "komen", "fietsen"];
-    const complement = movementVerbs.includes(verbChoice.dutch) ? pick(travelDestinations) : pick(frontedComplements);
-    // ensure direct object if verb requires it
-    const vmetaFront = findVerbCollocation(verbChoice.dutch);
-    let objDutch = "";
-    let objEnglish = "";
-    if (vmetaFront?.requiresDirectObject) {
-      const obj = pickObjectForVerb(verbChoice.dutch);
-      objDutch = obj.articleAllowed ? `${obj.article} ${obj.word}` : obj.word;
-      objEnglish = obj.english ?? obj.word;
-    }
+    const complement = buildComplementForVerb(verbChoice.dutch);
     const verb: GrammarVerb = { infinitive: verbChoice.dutch, tense: "present" };
     const intent: GrammarIntent = {
       grammarType: "fronted-inversion",
@@ -888,8 +1022,10 @@ function generateStructuredSentenceInternal(category: PracticeCategory): Generat
     };
 
     const dutchVerb = conjugatePresent(verb.infinitive, subject, true);
-    const dutch = `${adverb.dutch} ${dutchVerb} ${subject.pronoun}${objDutch ? ' ' + objDutch : ''} ${complement.dutch}.`;
-    const english = `${adverb.english.charAt(0).toUpperCase()}${adverb.english.slice(1)}, ${subject.english} ${englishPresent(subject, verbChoice.english)}${objEnglish ? ' ' + objEnglish : ''} ${complement.english}.`;
+    const dutchComplement = complement.kind === "none" ? "" : ` ${complement.dutch}`;
+    const dutch = `${adverb.dutch} ${dutchVerb} ${subject.pronoun}${dutchComplement}.`;
+    const englishComplement = complement.kind === "none" ? "" : ` ${complement.kind === "infinitive" ? `to ${complement.english}` : complement.english}`;
+    const english = `${adverb.english.charAt(0).toUpperCase()}${adverb.english.slice(1)}, ${subject.english} ${englishPresent(subject, verbChoice.english)}${englishComplement}.`;
 
     return postProcess({
       english,
@@ -947,7 +1083,7 @@ function generateStructuredSentenceInternal(category: PracticeCategory): Generat
       };
     }
 
-    const verbChoice = pick(baseVerbs);
+    const verbChoice = pick(genericVerbOptions);
     const verb: GrammarVerb = { infinitive: verbChoice.dutch, tense: "present" };
     const intent: GrammarIntent = {
       grammarType: "questions-inversion",
@@ -956,21 +1092,17 @@ function generateStructuredSentenceInternal(category: PracticeCategory): Generat
       clause: { type: "question", inversionRequired: true }
     };
 
-    // If the verb requires an object, attach a compatible one
-    const vmeta = findVerbCollocation(verbChoice.dutch);
-    let objectDutch = "";
-    let objectEnglish = "";
-    if (vmeta?.requiresDirectObject) {
-      const obj = pickObjectForVerb(verbChoice.dutch);
-      objectDutch = obj.articleAllowed ? `${obj.article} ${obj.word}` : obj.word;
-      objectEnglish = obj.english ?? obj.word;
-    }
+    const complement = buildComplementForVerb(verbChoice.dutch);
 
     const dutchVerb = conjugatePresent(verb.infinitive, subject, true);
     const dutchTime = pick(questionTimesDutch);
     const englishTime = pick(questionTimes);
-    const dutch = `${dutchVerb.charAt(0).toUpperCase()}${dutchVerb.slice(1)} ${subject.pronoun}${objectDutch ? ' ' + objectDutch : ''} ${dutchTime}?`;
-    const english = `${englishDo(subject)} ${subject.english} ${verbChoice.english}${objectEnglish ? ' ' + objectEnglish : ''} ${englishTime}?`;
+    const dutchComplement = complement.kind === "none" ? "" : ` ${complement.dutch}`;
+    const englishComplement = complement.kind === "none" ? "" : ` ${complement.kind === "infinitive" ? `to ${complement.english}` : complement.english}`;
+    const timeSuffix = complement.kind === "infinitive" || complement.kind === "clause" ? "" : ` ${dutchTime}`;
+    const englishTimeSuffix = complement.kind === "infinitive" || complement.kind === "clause" ? "" : ` ${englishTime}`;
+    const dutch = `${dutchVerb.charAt(0).toUpperCase()}${dutchVerb.slice(1)} ${subject.pronoun}${dutchComplement}${timeSuffix}?`;
+    const english = `${englishDo(subject)} ${subject.english} ${verbChoice.english}${englishComplement}${englishTimeSuffix}?`;
 
     return postProcess({
       english,
@@ -1123,12 +1255,13 @@ function generateStructuredSentenceInternal(category: PracticeCategory): Generat
       objEnglish = obj.english ?? obj.word;
     }
     const dutch = `${subject.pronoun} ${auxVerb}${objDutch ? ' ' + objDutch : ''} ${phrase.dutch} ${verbChoice.participle}.`;
+    const alternateDutch = `${subject.pronoun} ${auxVerb}${objDutch ? ' ' + objDutch : ''} ${verbChoice.participle} ${phrase.dutch}.`;
     const english = `${subject.english} ${englishHave(subject)} ${objEnglish ? objEnglish + ' ' : ''}${verbChoice.english} ${phrase.english}.`;
 
     return {
       english,
       dutch,
-      accepted: undefined,
+      accepted: uniqueStrings([dutch, alternateDutch]),
         hint: getSubjectHint(subject, auxVerb, `Place "${phrase.dutch}" before the participle.`),
       grammarNote: "Movement verbs often use zijn in the perfect tense.",
       grammar: buildMetadata(intent)

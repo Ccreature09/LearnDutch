@@ -341,6 +341,82 @@ const irregularPresent: Record<string, Record<string, string>> = {
   }
 };
 
+const separablePresent: Record<string, Record<string, string>> = {
+  uitleggen: {
+    "1s": "leg uit",
+    "2s": "legt uit",
+    "3s": "legt uit",
+    "1p": "leggen uit",
+    "3p": "leggen uit"
+  },
+  aankomen: {
+    "1s": "kom aan",
+    "2s": "komt aan",
+    "3s": "komt aan",
+    "1p": "komen aan",
+    "3p": "komen aan"
+  },
+  opstaan: {
+    "1s": "sta op",
+    "2s": "staat op",
+    "3s": "staat op",
+    "1p": "staan op",
+    "3p": "staan op"
+  },
+  afmaken: {
+    "1s": "maak af",
+    "2s": "maakt af",
+    "3s": "maakt af",
+    "1p": "maken af",
+    "3p": "maken af"
+  },
+  meenemen: {
+    "1s": "neem mee",
+    "2s": "neemt mee",
+    "3s": "neemt mee",
+    "1p": "nemen mee",
+    "3p": "nemen mee"
+  }
+};
+
+const separablePresentInverted: Record<string, Record<string, string>> = {
+  uitleggen: {
+    "1s": "leg",
+    "2s": "legt",
+    "3s": "legt",
+    "1p": "leggen",
+    "3p": "leggen"
+  },
+  aankomen: {
+    "1s": "kom",
+    "2s": "komt",
+    "3s": "komt",
+    "1p": "komen",
+    "3p": "komen"
+  },
+  opstaan: {
+    "1s": "sta",
+    "2s": "staat",
+    "3s": "staat",
+    "1p": "staan",
+    "3p": "staan"
+  },
+  afmaken: {
+    "1s": "maak",
+    "2s": "maakt",
+    "3s": "maakt",
+    "1p": "maken",
+    "3p": "maken"
+  },
+  meenemen: {
+    "1s": "neem",
+    "2s": "neemt",
+    "3s": "neemt",
+    "1p": "nemen",
+    "3p": "nemen"
+  }
+};
+
 function subjectKey(subject: GrammarSubject): "1s" | "2s" | "3s" | "1p" | "3p" {
   if (subject.number === "plural") {
     return subject.person === 1 ? "1p" : "3p";
@@ -351,6 +427,16 @@ function subjectKey(subject: GrammarSubject): "1s" | "2s" | "3s" | "1p" | "3p" {
 export function conjugatePresent(infinitive: string, subject: GrammarSubject, inverted = false): string {
   const key = subjectKey(subject);
   const irregular = irregularPresent[infinitive];
+  const separable = separablePresent[infinitive];
+  const separableInverted = separablePresentInverted[infinitive];
+
+  if (inverted && separableInverted?.[key]) {
+    return separableInverted[key];
+  }
+
+  if (separable?.[key]) {
+    return separable[key];
+  }
 
   // Hard inversion rule: jij/je lose -t when they follow the finite verb.
   // Formal u keeps the normal finite verb form.

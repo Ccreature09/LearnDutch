@@ -435,6 +435,176 @@ export const verbDatabase: { [infinitive: string]: VerbMetadata } = {
     usageNote: 'To speak'
   },
 
+  uitleggen: {
+    infinitive: 'uitleggen',
+    conjugations: {
+      present: {
+        ik: 'leg uit',
+        jij: 'legt uit',
+        je: 'legt uit',
+        hij: 'legt uit',
+        zij: 'legt uit',
+        het: 'legt uit',
+        wij: 'leggen uit',
+        jullie: 'leggen uit',
+        ze: 'leggen uit'
+      },
+      past: {
+        ik: 'legde uit',
+        jij: 'legde uit',
+        je: 'legde uit',
+        hij: 'legde uit',
+        zij: 'legde uit',
+        het: 'legde uit',
+        wij: 'legden uit',
+        jullie: 'legden uit',
+        ze: 'legden uit'
+      }
+    },
+    isAuxiliary: false,
+    isSeparable: true,
+    separablePrefix: 'uit',
+    perfectAuxiliary: 'hebben',
+    participle: 'uitgelegd',
+    usageNote: 'To explain'
+  },
+
+  aankomen: {
+    infinitive: 'aankomen',
+    conjugations: {
+      present: {
+        ik: 'kom aan',
+        jij: 'komt aan',
+        je: 'komt aan',
+        hij: 'komt aan',
+        zij: 'komt aan',
+        het: 'komt aan',
+        wij: 'komen aan',
+        jullie: 'komen aan',
+        ze: 'komen aan'
+      },
+      past: {
+        ik: 'kwam aan',
+        jij: 'kwam aan',
+        je: 'kwam aan',
+        hij: 'kwam aan',
+        zij: 'kwam aan',
+        het: 'kwam aan',
+        wij: 'kwamen aan',
+        jullie: 'kwamen aan',
+        ze: 'kwamen aan'
+      }
+    },
+    isAuxiliary: false,
+    isSeparable: true,
+    separablePrefix: 'aan',
+    perfectAuxiliary: 'zijn',
+    participle: 'aangekomen',
+    usageNote: 'To arrive'
+  },
+
+  opstaan: {
+    infinitive: 'opstaan',
+    conjugations: {
+      present: {
+        ik: 'sta op',
+        jij: 'staat op',
+        je: 'staat op',
+        hij: 'staat op',
+        zij: 'staat op',
+        het: 'staat op',
+        wij: 'staan op',
+        jullie: 'staan op',
+        ze: 'staan op'
+      },
+      past: {
+        ik: 'stond op',
+        jij: 'stond op',
+        je: 'stond op',
+        hij: 'stond op',
+        zij: 'stond op',
+        het: 'stond op',
+        wij: 'stonden op',
+        jullie: 'stonden op',
+        ze: 'stonden op'
+      }
+    },
+    isAuxiliary: false,
+    isSeparable: true,
+    separablePrefix: 'op',
+    perfectAuxiliary: 'zijn',
+    participle: 'opgestaan',
+    usageNote: 'To get up'
+  },
+
+  afmaken: {
+    infinitive: 'afmaken',
+    conjugations: {
+      present: {
+        ik: 'maak af',
+        jij: 'maakt af',
+        je: 'maakt af',
+        hij: 'maakt af',
+        zij: 'maakt af',
+        het: 'maakt af',
+        wij: 'maken af',
+        jullie: 'maken af',
+        ze: 'maken af'
+      },
+      past: {
+        ik: 'maakte af',
+        jij: 'maakte af',
+        je: 'maakte af',
+        hij: 'maakte af',
+        zij: 'maakte af',
+        het: 'maakte af',
+        wij: 'maakten af',
+        jullie: 'maakten af',
+        ze: 'maakten af'
+      }
+    },
+    isAuxiliary: false,
+    isSeparable: true,
+    separablePrefix: 'af',
+    perfectAuxiliary: 'hebben',
+    participle: 'afgemaakt',
+    usageNote: 'To finish'
+  },
+
+  meenemen: {
+    infinitive: 'meenemen',
+    conjugations: {
+      present: {
+        ik: 'neem mee',
+        jij: 'neemt mee',
+        je: 'neemt mee',
+        hij: 'neemt mee',
+        zij: 'neemt mee',
+        het: 'neemt mee',
+        wij: 'nemen mee',
+        jullie: 'nemen mee',
+        ze: 'nemen mee'
+      },
+      past: {
+        ik: 'nam mee',
+        jij: 'nam mee',
+        je: 'nam mee',
+        hij: 'nam mee',
+        zij: 'nam mee',
+        het: 'nam mee',
+        wij: 'namen mee',
+        jullie: 'namen mee',
+        ze: 'namen mee'
+      }
+    },
+    isAuxiliary: false,
+    isSeparable: true,
+    separablePrefix: 'mee',
+    perfectAuxiliary: 'hebben',
+    participle: 'meegenomen',
+    usageNote: 'To take along'
+  },
+
   schreiben: {
     infinitive: 'schrijven',
     conjugations: {
