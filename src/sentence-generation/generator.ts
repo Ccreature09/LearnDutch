@@ -1095,14 +1095,22 @@ function generateStructuredSentenceInternal(category: PracticeCategory): Generat
     const complement = buildComplementForVerb(verbChoice.dutch);
 
     const dutchVerb = conjugatePresent(verb.infinitive, subject, true);
-    const dutchTime = pick(questionTimesDutch);
-    const englishTime = pick(questionTimes);
+    // FIX: Pick paired time/place by index, not randomly
+    const timeIndex = Math.floor(Math.random() * Math.min(questionTimesDutch.length, questionTimes.length));
+    const dutchTime = questionTimesDutch[timeIndex];
+    const englishTime = questionTimes[timeIndex];
     const dutchComplement = complement.kind === "none" ? "" : ` ${complement.dutch}`;
     const englishComplement = complement.kind === "none" ? "" : ` ${complement.kind === "infinitive" ? `to ${complement.english}` : complement.english}`;
-    const timeSuffix = complement.kind === "infinitive" || complement.kind === "clause" ? "" : ` ${dutchTime}`;
-    const englishTimeSuffix = complement.kind === "infinitive" || complement.kind === "clause" ? "" : ` ${englishTime}`;
-    const dutch = `${dutchVerb.charAt(0).toUpperCase()}${dutchVerb.slice(1)} ${subject.pronoun}${dutchComplement}${timeSuffix}?`;
-    const english = `${englishDo(subject)} ${subject.english} ${verbChoice.english}${englishComplement}${englishTimeSuffix}?`;
+    
+    // FIX: Word order - time comes before place/object (Verb Subject Time Place/Object)
+    let timePart = "";
+    if (dutchTime && complement.kind !== "infinitive" && complement.kind !== "clause") {
+      timePart = ` ${dutchTime}`;
+    }
+    
+    const dutch = `${dutchVerb.charAt(0).toUpperCase()}${dutchVerb.slice(1)} ${subject.pronoun}${timePart}${dutchComplement}?`;
+    const englishTimeSuffix = dutchTime && complement.kind !== "infinitive" && complement.kind !== "clause" ? ` ${englishTime}` : "";
+    const english = `${englishDo(subject)} ${subject.english} ${verbChoice.english}${englishTimeSuffix}${englishComplement}?`;
 
     return postProcess({
       english,
@@ -1230,8 +1238,17 @@ function generateStructuredSentenceInternal(category: PracticeCategory): Generat
 
   if (category === "perfect-tense") {
     const subject = pickSubject(["person", "group"]);
-    const verbChoice = pick(perfectVerbs);
+    let verbChoice = pick(perfectVerbs);
     const phrase = pick(perfectTimePhrases);
+    
+    // FIX: Reject perfect tense forms of verbs that are incomplete without complements
+    const incompleteWithoutComplement = ["weten", "denken", "willen", "zeggen"];
+    let attempts = 0;
+    while (incompleteWithoutComplement.includes(verbChoice.infinitive) && attempts < 5) {
+      verbChoice = pick(perfectVerbs);
+      attempts++;
+    }
+    
     const verb: GrammarVerb = {
       infinitive: verbChoice.infinitive,
       tense: "perfect",
@@ -1245,7 +1262,7 @@ function generateStructuredSentenceInternal(category: PracticeCategory): Generat
     };
 
     const auxVerb = conjugatePresent(verbChoice.auxiliary, subject);
-    // If verb requires a direct object, attach it before the participle: subject aux object participle
+    // If verb requires a direct object, ALWAYS attach it; if semantic requirement not met, reject this candidate
     const vmeta = findVerbCollocation(verbChoice.infinitive);
     let objDutch = "";
     let objEnglish = "";
@@ -1254,6 +1271,12 @@ function generateStructuredSentenceInternal(category: PracticeCategory): Generat
       objDutch = obj.articleAllowed ? `${obj.article} ${obj.word}` : obj.word;
       objEnglish = obj.english ?? obj.word;
     }
+    
+    // Check for semantic completeness in perfect tense
+    if ((vmeta?.requiresObjectOrClause || vmeta?.requiresDirectObject) && !objDutch) {
+      return null; // Reject incomplete sentences
+    }
+    
     const dutch = `${subject.pronoun} ${auxVerb}${objDutch ? ' ' + objDutch : ''} ${phrase.dutch} ${verbChoice.participle}.`;
     const alternateDutch = `${subject.pronoun} ${auxVerb}${objDutch ? ' ' + objDutch : ''} ${verbChoice.participle} ${phrase.dutch}.`;
     const english = `${subject.english} ${englishHave(subject)} ${objEnglish ? objEnglish + ' ' : ''}${verbChoice.english} ${phrase.english}.`;

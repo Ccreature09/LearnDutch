@@ -17,6 +17,22 @@ export function scoreCandidate(candidate: { dutch: string; english: string }, in
   let naturalnessScore = 1;
   const educationalScore = 1;
 
+  // Check for untranslated Dutch words in English
+  const dutchWordsInEnglish = ['en', 'de', 'het', 'een', 'is', 'zijn', 'hebben', 'heeft', 'ben', 'hebt', 'heb', 'pauze', 'fiets', 'boek'];
+  for (const dutchWord of dutchWordsInEnglish) {
+    if (candidate.english.toLowerCase().includes(` ${dutchWord} `) || candidate.english.toLowerCase().startsWith(`${dutchWord} `)) {
+      // Check if it's actually an English word being used (e.g., 'the' is English, 'de' is Dutch)
+      if (dutchWord !== 'and' && dutchWord !== 'is' && dutchWord !== 'have') {
+        semanticScore *= 0.3; // penalty for untranslated Dutch
+      }
+    }
+  }
+
+  // Check for incomplete English prompts (missing object after verb)
+  if (candidate.english.includes('forgot') && !candidate.english.match(/forgot\s+(the|my|a|an)\s+\w+/)) {
+    semanticScore *= 0.5;
+  }
+
   // 1) Verb requirements
   try {
     const verb = intent?.verb?.infinitive;

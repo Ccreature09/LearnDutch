@@ -129,8 +129,34 @@ export const nounCollocations: NounCollocation[] = [
   { noun: 'soep', compatibleAdjectives: ['warm','koud','zout','lekker'] },
   { noun: 'mes', compatibleAdjectives: ['scherp','schoon'] },
   { noun: 'project', compatibleAdjectives: ['nieuw','groot','belangrijk'] },
-  { noun: 'les', compatibleAdjectives: ['moeilijk','interessant','kort'] }
+  { noun: 'les', compatibleAdjectives: ['moeilijk','interessant','kort'] },
+  { noun: 'lamp', compatibleAdjectives: ['groot','klein','oud','modern'] },
+  { noun: 'jas', compatibleAdjectives: ['warm','koud','mooi','lelijk'] }
 ];
+
+export type ProfessionNoun = { word: string; isProfession: boolean };
+
+export const professionNouns: ProfessionNoun[] = [
+  { word: 'dokter', isProfession: true },
+  { word: 'leraar', isProfession: true },
+  { word: 'verpleegster', isProfession: true },
+  { word: 'politieagent', isProfession: true },
+  { word: 'boer', isProfession: true },
+  { word: 'visser', isProfession: true },
+  { word: 'advocaat', isProfession: true },
+  { word: 'bakker', isProfession: true },
+  { word: 'slager', isProfession: true },
+  { word: 'ober', isProfession: true },
+  { word: 'kapper', isProfession: true },
+  { word: 'meisje', isProfession: false },
+  { word: 'jongen', isProfession: false },
+  { word: 'student', isProfession: false }
+];
+
+export function isProfessionNoun(word: string): boolean {
+  const pnoun = professionNouns.find(p => p.word === word);
+  return pnoun?.isProfession ?? false;
+}
 
 export type VerbComplementRequirement =
   | 'direct_object'

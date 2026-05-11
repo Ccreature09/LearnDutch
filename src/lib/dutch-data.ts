@@ -1499,12 +1499,16 @@ function buildSentence(category: PracticeCategory): SentencePayload {
   const last = buildSentenceOnce(category);
   if (last) return last;
 
-  return {
-    en: "I am ready.",
-    nl: "Ik ben klaar.",
-    hint: "Fallback sentence.",
-    grammarNote: "Fallback when generation fails."
-  };
+  // FIX #8: Fallback variety pool - rotate instead of always returning "Ik ben klaar"
+  const fallbackOptions: SentencePayload[] = [
+    { en: "I am ready.", nl: "Ik ben klaar.", hint: "Fallback sentence.", grammarNote: "Fallback when generation fails." },
+    { en: "We are at home.", nl: "Wij zijn thuis.", hint: "Fallback sentence.", grammarNote: "Fallback when generation fails." },
+    { en: "He reads a book.", nl: "Hij leest een boek.", hint: "Fallback sentence.", grammarNote: "Fallback when generation fails." },
+    { en: "She drinks coffee.", nl: "Zij drinkt koffie.", hint: "Fallback sentence.", grammarNote: "Fallback when generation fails." },
+    { en: "It is cold today.", nl: "Het is vandaag koud.", hint: "Fallback sentence.", grammarNote: "Fallback when generation fails." },
+    { en: "They have a cat.", nl: "Zij hebben een kat.", hint: "Fallback sentence.", grammarNote: "Fallback when generation fails." }
+  ];
+  return fallbackOptions[Math.floor(Math.random() * fallbackOptions.length)];
 }
 
 export function normalizeAnswer(value: string) {
