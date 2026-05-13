@@ -74,69 +74,131 @@ const verbConjugations: Record<string, Record<string, string>> = {
   }
 };
 
+function detectEnglishQuestionError(
+  userWords: string[],
+  expectedWords: string[]
+): string | undefined {
+  if (!expectedWords.length) return undefined;
+ 
+  // Expected starts with auxiliary (question form)
+  const questionAuxiliaries = ["is", "are", "am", "was", "were", "do", "does", "did", "have", "has", "can", "will", "would", "should", "could", "shall"];
+  const firstExpected = expectedWords[0]?.replace(/[?!]$/, "").toLowerCase();
+ 
+  if (!questionAuxiliaries.includes(firstExpected)) return undefined;
+ 
+  // User's first word is a subject pronoun (declarative form)
+  const subjectPronouns = ["i", "you", "he", "she", "it", "we", "they"];
+  const firstUser = userWords[0]?.toLowerCase();
+ 
+  if (subjectPronouns.includes(firstUser)) {
+    return `📍 Word order: In Dutch questions, the verb comes before the subject — same in English. Expected "${expectedWords[0]} ${expectedWords[1] ?? "…"}" not "${userWords[0]} ${userWords[1] ?? "…"}".`;
+  }
+ 
+  return undefined;
+}
+
 export function analyzeAnswer(
   userAnswer: string,
   expected: string,
   category?: string,
-  metadata?: GrammarMetadata
+  metadata?: GrammarMetadata,
+  direction?: "en-to-nl" | "nl-to-en"
 ): Feedback {
   const userAnswerNormalized = normalizeAnswerForComparison(userAnswer);
   const expectedNormalized = normalizeAnswerForComparison(expected);
-
+ 
   const userWords = userAnswerNormalized.toLowerCase().trim().split(/\s+/);
   const expectedWords = expectedNormalized.toLowerCase().trim().split(/\s+/);
-
+ 
+  // Exact match — always correct
+  if (userAnswerNormalized.toLowerCase().trim() === expectedNormalized.toLowerCase().trim()) {
+    return { type: "ok", text: "✓ Perfect!" };
+  }
+ 
+  // For nl-to-en: skip Dutch grammar validators entirely.
+  // Just do diff analysis — Dutch validators would give nonsense results on English.
+  if (direction === "nl-to-en" || !metadata) {
+    const errors = findWordDifferences(userWords, expectedWords);
+    const diffTokens = buildDiffTokens(userWords, expectedWords);
+ 
+    // Detect question word order error in English: "they are nervous" vs "are they nervous"
+    const questionInversionNote = detectEnglishQuestionError(userWords, expectedWords);
+ 
+    if (errors.length === 0) {
+      return { type: "ok", text: "✓ Perfect!" };
+    }
+ 
+    if (errors.length <= 2) {
+      const text =
+        errors.length === 1
+          ? `One word differs: "${errors[0].actual}" should be "${errors[0].expected}"`
+          : `${errors.length} words differ`;
+      return {
+        type: "close",
+        text,
+        diffTokens,
+        details: errors.slice(0, 3).map((e) => ({
+          correctWord: e.expected,
+          yourWord: e.actual,
+          explanation: `Use "${e.expected}" here`,
+        })),
+        inversionNote: questionInversionNote,
+      };
+    }
+ 
+    return {
+      type: "bad",
+      text: `Expected: ${expected}`,
+      diffTokens,
+      inversionNote: questionInversionNote,
+    };
+  }
+ 
+  // en-to-nl: run full Dutch validation as before
   if (metadata) {
     const engine = new ValidationEngine(category);
     const result = engine.validate(userAnswer, expected, metadata);
-
+ 
     if (result.isCorrect) {
       return { type: "ok", text: "✓ Perfect!" };
     }
-
+ 
     const details = result.errors.map((error) => ({
       correctWord: error.expectedToken ?? "",
       yourWord: error.userToken ?? "",
-      explanation: error.explanation
+      explanation: error.explanation,
     }));
-
+ 
     const diffTokens = buildDiffTokens(userWords, expectedWords);
-
-    const inversionNote = result.errors.some((error) =>
-      error.type === "inversion_required" || error.type === "inversion_incorrect"
+ 
+    const inversionNote = result.errors.some((e) =>
+      e.type === "inversion_required" || e.type === "inversion_incorrect"
     )
       ? "Fronted time expressions trigger inversion in Dutch."
       : undefined;
-
+ 
     const score = result.matchScore ?? 0;
     const type = score >= 70 ? "close" : "bad";
     const text = score >= 70
       ? "Some grammar issues to fix."
       : `Expected: ${expected}`;
-
+ 
     return {
       type,
       text,
       diffTokens,
-      errorTypes: result.errors.map((error) => error.type),
+      errorTypes: result.errors.map((e) => e.type),
       details: details.slice(0, 3),
-      inversionNote
+      inversionNote,
     };
   }
-
-  // Exact match (after normalizing)
-  if (userAnswerNormalized.toLowerCase().trim() === expectedNormalized.toLowerCase().trim()) {
-    return { type: "ok", text: "✓ Perfect!" };
-  }
-
-  // Check for word order inversion issues FIRST (before word differences)
+ 
+  // Fallback: plain comparison
   const inversionIssue = detectInversionError(userWords, expectedWords, category);
-
-  // Detect specific errors
   const details: Feedback["details"] = [];
   const errors = findWordDifferences(userWords, expectedWords);
   const diffTokens = buildDiffTokens(userWords, expectedWords);
-
+ 
   errors.forEach((error) => {
     details.push({
       correctWord: error.expected,
@@ -144,35 +206,29 @@ export function analyzeAnswer(
       explanation: getExplanation(error.expected, error.actual, category),
     });
   });
-
-  // If we detected an inversion issue AND have word differences, mention both
+ 
   if (inversionIssue && errors.length > 0) {
-    const text = `${errors.length} word${errors.length === 1 ? "" : "s"} differ and word order is incorrect`;
     return {
       type: "close",
-      text,
+      text: `${errors.length} word${errors.length === 1 ? "" : "s"} differ and word order is incorrect`,
       diffTokens,
       details: details.slice(0, 3),
       inversionNote: inversionIssue,
     };
   }
-
-  // Close answer with details
+ 
   if (errors.length > 0 && errors.length <= 2) {
-    const text =
-      errors.length === 1
-        ? `One word differs: "${errors[0].actual}" should be "${errors[0].expected}"`
-        : `${errors.length} words differ`;
-
     return {
       type: "close",
-      text,
+      text: errors.length === 1
+        ? `One word differs: "${errors[0].actual}" should be "${errors[0].expected}"`
+        : `${errors.length} words differ`,
       diffTokens,
       details: details.slice(0, 3),
       inversionNote: inversionIssue,
     };
   }
-
+ 
   return {
     type: "bad",
     text: `Expected: ${expected}`,

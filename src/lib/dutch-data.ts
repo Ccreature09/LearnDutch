@@ -1561,9 +1561,27 @@ export function buildQuestionSet(
   direction: Direction
 ): PracticeItem[] {
   const questions: PracticeItem[] = [];
-  for (let i = 0; i < count; i += 1) {
+  const seenExpected = new Set<string>();
+  const maxAttempts = count * 8; // allow plenty of retries before giving up
+  let attempts = 0;
+ 
+  while (questions.length < count && attempts < maxAttempts) {
+    attempts++;
     const selected = category === "all" ? pick(allCategories) : category;
-    questions.push(createPracticeItem(direction, selected));
+    const item = createPracticeItem(direction, selected);
+ 
+    // Normalise expected answer for dedup comparison
+    const key = item.expected
+      .toLowerCase()
+      .replace(/[^\w\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+ 
+    if (!seenExpected.has(key)) {
+      seenExpected.add(key);
+      questions.push(item);
+    }
   }
+ 
   return questions;
 }

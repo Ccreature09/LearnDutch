@@ -295,7 +295,8 @@ export function DutchTrainerApp() {
       practiceAnswer,
       practiceItem.expected,
       practiceItem.category,
-      practiceItem.grammar
+      practiceItem.grammar,
+      practiceItem.direction
     );
 
     // Reconcile analyzer result with strict evaluation to avoid false positives

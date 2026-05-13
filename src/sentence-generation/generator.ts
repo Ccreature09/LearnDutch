@@ -264,6 +264,28 @@ const movementVerbs = new Set(["lopen", "reizen", "gaan", "komen", "fietsen", "r
 const modalInfinitives = new Set(["willen", "moeten", "kunnen", "mogen", "zullen", "hoeven", "durven"]);
 const clauseVerbs = new Set(["weten", "denken", "zeggen", "vragen", "merken", "verwachten", "beseffen", "beweren", "uitleggen"]);
 
+const VERB_ALLOWED_LOCATION_WORDS = new Map<string, ReadonlySet<string>>([
+  ["lezen",    new Set(["bibliotheek", "park", "tuin", "huis", "school", "trein", "bed"])],
+  ["leren",    new Set(["school", "universiteit", "bibliotheek", "huis", "kantoor"])],
+  ["studeren", new Set(["bibliotheek", "universiteit", "huis", "school", "kantoor"])],
+  ["slapen",   new Set(["huis", "ziekenhuis"])],
+  ["koken",    new Set(["huis", "school"])],
+  ["zwemmen",  new Set(["zwembad", "strand"])],
+  ["zingen",   new Set(["school", "universiteit", "huis"])],
+  ["werken",   new Set(["kantoor", "stad", "school", "universiteit", "ziekenhuis", "winkel", "station"])],
+  ["praten",   new Set(["kantoor", "school", "universiteit", "stad", "station", "huis", "bibliotheek"])],
+  ["wachten",  new Set(["station", "school", "universiteit", "stad", "winkel", "straat"])],
+  ["kijken",   new Set(["huis", "school", "universiteit", "stad", "bibliotheek"])],
+  ["liggen",   new Set(["huis", "ziekenhuis", "strand", "park"])],
+  ["zitten",   new Set(["school", "universiteit", "bibliotheek", "huis", "kantoor", "station", "park"])],
+]);
+ 
+function locationAllowedForVerb(verbInfinitive: string, locationNounWord: string): boolean {
+  const allowed = VERB_ALLOWED_LOCATION_WORDS.get(verbInfinitive);
+  if (!allowed) return true; // no restriction
+  return allowed.has(locationNounWord);
+}
+
 const numberWords = [
   { english: "three", dutch: "drie" },
   { english: "four", dutch: "vier" },
@@ -651,6 +673,19 @@ function withIndefiniteArticle(value: string): string {
 }
 
 function pluralizeEnglish(value: string): string {
+  const irregulars: Record<string, string> = {
+    man: "men",
+    woman: "women",
+    policeman: "policemen",
+    policewoman: "policewomen",
+    child: "children",
+    person: "people",
+    mouse: "mice",
+    tooth: "teeth",
+    foot: "feet",
+  };
+  const lower = value.toLowerCase();
+  if (irregulars[lower]) return irregulars[lower];
   if (value.endsWith("y") && !/[aeiou]y$/i.test(value)) return `${value.slice(0, -1)}ies`;
   if (/(s|x|z|ch|sh)$/i.test(value)) return `${value}es`;
   return `${value}s`;
@@ -932,24 +967,50 @@ function generateStructuredSentenceInternal(category: PracticeCategory): Generat
   }
 
   // ── FRONTED-INVERSION ────────────────────────────────────────────────────────
-  if (category === "fronted-inversion") {
+   if (category === "fronted-inversion") {
     const fSubject = pickSubject(["person", "group"]);
     const adverb = pick(adverbs);
-    const verbChoice = pick(baseVerbs);
+ 
+    // Exclude verbs that require a direct object or clause — they produce broken
+    // sentences in this simple [Adv] [Verb] [Subj] [Location] template.
+    const verbsForFronted = baseVerbs.filter((v) => {
+      const c = findVerbCollocation(v.dutch);
+      return !c?.requiresDirectObject && !c?.requiresObjectOrClause;
+    });
+    const verbChoice = pick(verbsForFronted.length ? verbsForFronted : baseVerbs);
+ 
     const verb: GrammarVerb = { infinitive: verbChoice.dutch, tense: "present" };
-    const intent: GrammarIntent = { grammarType: "fronted-inversion", subject: fSubject, verb, clause: { type: "fronted_time", inversionRequired: true }, adverb };
+    const intent: GrammarIntent = {
+      grammarType: "fronted-inversion",
+      subject: fSubject,
+      verb,
+      clause: { type: "fronted_time", inversionRequired: true },
+      adverb,
+    };
     const dv = conjugatePresent(verbChoice.dutch, fSubject, true);
-
-    // For movement verbs, use a destination; otherwise use a static location
+ 
     let complement: { english: string; dutch: string };
     if (movementVerbs.has(verbChoice.dutch)) {
       complement = pick(travelDestinations);
     } else {
-      complement = pick(frontedComplements);
+      // Filter static complements to only those compatible with this verb.
+      // Extract noun word as last token of Dutch phrase.
+      const validComplements = frontedComplements.filter((loc) => {
+        const locWord = loc.dutch.trim().split(/\s+/).pop() ?? "";
+        return locationAllowedForVerb(verbChoice.dutch, locWord);
+      });
+      complement = pick(validComplements.length >= 2 ? validComplements : frontedComplements);
     }
+ 
     const dutch = `${adverb.dutch} ${dv} ${fSubject.pronoun} ${complement.dutch}.`;
     const english = `${adverb.english.charAt(0).toUpperCase()}${adverb.english.slice(1)}, ${fSubject.english} ${englishPresent(fSubject, verbChoice.english)} ${complement.english}.`;
-    return postProcess({ english, dutch, hint: "Fronted time expressions trigger inversion.", grammarNote: "When a sentence starts with time/place, the verb comes before the subject.", grammar: buildMetadata(intent) }, intent);
+    return postProcess({
+      english,
+      dutch,
+      hint: "Fronted time expressions trigger inversion.",
+      grammarNote: "When a sentence starts with time/place, the verb comes before the subject.",
+      grammar: buildMetadata(intent),
+    }, intent);
   }
 
   // ── PERFECT-TENSE ─────────────────────────────────────────────────────────────
@@ -975,9 +1036,14 @@ function generateStructuredSentenceInternal(category: PracticeCategory): Generat
     let objDutch = "";
     let objEnglish = "";
     if (vmeta?.requiresDirectObject) {
-      const obj = pickObjectForVerb(verbChoice.infinitive);
-      objDutch = obj.articleAllowed ? `${obj.article} ${obj.word}` : obj.word;
-      objEnglish = obj.english ?? obj.word;
+      // IMPORTANT: do NOT use pickObjectForVerb here.
+      // Its commonObjects are Dutch phrases (e.g. "de huur", "de sleutels") that
+      // would leak Dutch into the English prompt.
+      // objectNouns has clean .english fields for every entry.
+      const countableObjects = objectNouns.filter((o) => o.countability === "countable");
+      const obj = pick(countableObjects);
+      objDutch = `${obj.article ?? "een"} ${obj.word}`;
+      objEnglish = obj.english; // always proper English, e.g. "a book", "a key"
     }
 
     const dutch1 = `${pSubject.pronoun} ${auxVerb}${objDutch ? ` ${objDutch}` : ""} ${phrase.dutch} ${verbChoice.participle}.`;
