@@ -10,7 +10,11 @@ export type PracticeCategory =
   | "perfect-tense"
   | "terwijl-toen"
   | "numbers"
-  | "transport-location";
+  | "transport-location"
+  | "simple-past"
+  | "future"
+  | "past-perfect"
+  | "conditional";
 
 export type Direction = "en-to-nl" | "nl-to-en";
 

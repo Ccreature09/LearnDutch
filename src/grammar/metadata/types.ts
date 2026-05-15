@@ -1,11 +1,4 @@
-export type Person = 1 | 2 | 3;
-export type NumberValue = "singular" | "plural";
-export type Tense = "present" | "past" | "perfect";
-export type Countability = "countable" | "uncountable";
-export type Gender = "de" | "het";
-export type ClauseType = "main" | "fronted_time" | "subordinate" | "question";
-
-export type GrammarIntentType =
+export type PracticeCategory =
   | "zijn-have"
   | "negation"
   | "questions-inversion"
@@ -17,7 +10,12 @@ export type GrammarIntentType =
   | "perfect-tense"
   | "terwijl-toen"
   | "numbers"
-  | "transport-location";
+  | "transport-location"
+  // ── NEW TENSE CATEGORIES ──────────────────────────────────────────────────
+  | "simple-past"      // imperfect: werkte, was, had, ging
+  | "future"           // gaan + infinitive / zullen + infinitive
+  | "past-perfect"     // had/was + past participle
+  | "conditional";     // zou/zouden + infinitive
 
 export type DutchModalInfinitive =
   | "kunnen"
@@ -31,49 +29,216 @@ export type DutchModalInfinitive =
 export interface GrammarSubject {
   pronoun: string;
   english: string;
-  person: Person;
-  number: NumberValue;
-  formality?: "formal" | "informal" | "both";
+  person: 1 | 2 | 3;
+  number: "singular" | "plural";
+  formality?: "formal" | "informal";
   semanticType?: "person" | "group" | "animal" | "thing";
-}
-
-export interface GrammarVerb {
-  infinitive: string;
-  tense: Tense;
-  auxiliary?: "hebben" | "zijn";
-  isModal?: boolean;
-  modalInfinitive?: DutchModalInfinitive;
 }
 
 export interface GrammarNoun {
   word: string;
-  gender: Gender;
-  countability: Countability;
+  gender: "de" | "het";
+  countability: "countable" | "uncountable";
   articleAllowed: boolean;
   article?: "de" | "het" | "een";
   plural?: string;
-  english?: string;
 }
 
 export interface GrammarLocation {
   noun: GrammarNoun;
   preposition: string;
-  english: string;
+  english?: string;
+}
+
+export interface GrammarVerb {
+  infinitive: string;
+  tense: "present" | "past" | "perfect";
+  auxiliary?: "hebben" | "zijn";
+  isModal?: boolean;
+  modalInfinitive?: DutchModalInfinitive;
 }
 
 export interface GrammarClause {
-  type: ClauseType;
+  type: "main" | "question" | "subordinate" | "fronted_time";
   inversionRequired: boolean;
-  conjunction?: string;
+  conjunction?: "want" | "omdat" | "dat" | "terwijl";
 }
 
 export interface GrammarIntent {
-  grammarType: GrammarIntentType;
+  grammarType: PracticeCategory | string;
   subject: GrammarSubject;
   verb: GrammarVerb;
-  object?: GrammarNoun;
+  object?: GrammarNoun | { word: string; articleAllowed: boolean; article?: string; english?: string };
   location?: GrammarLocation;
   negation?: boolean;
   clause?: GrammarClause;
-  adverb?: { english: string; dutch: string };
+}
+
+export type Direction = "en-to-nl" | "nl-to-en";
+
+export interface PracticeItem {
+  id: string;
+  category: PracticeCategory;
+  direction: Direction;
+  prompt: string;
+  expected: string;
+  accepted: string[];
+  hint: string;
+  grammarNote: string;
+  grammar?: import("../../lib/grammar-types").GrammarMetadata;
+}
+
+export interface VerbEntry {
+  infinitive: string;
+  english: string;
+  imperative: string;
+  auxiliary: "hebben" | "zijn";
+  present: {
+    ik: string;
+    jij: string;
+    je?: string;
+    u?: string;
+    hij: string;
+    het?: string;
+    wij: string;
+    we?: string;
+    jullie: string;
+    zij: string;
+    ze?: string;
+  };
+  past: {
+    singular: string;
+    plural: string;
+  };
+  pastParticiple: string;
+  perfect: string;
+}
+
+export interface NounEntry {
+  dutch: string;
+  english: string;
+  article: "de" | "het";
+  gender: "common" | "neuter";
+  plural: string;
+  thisForm: string;
+  thatForm: string;
+}
+
+/** Word class shown in the unified reference panel. */
+export type LexiconCategory =
+  | "noun"
+  | "verb"
+  | "adjective"
+  | "adverb"
+  | "preposition"
+  | "conjunction"
+  | "pronoun"
+  | "article"
+  | "particle"
+  | "numeral"
+  | "determiner"
+  | "name"
+  | "phrase";
+
+/** Single searchable entry: nouns/verbs link full cards; others use gloss + note. */
+export interface LexiconEntry {
+  dutch: string;
+  english: string;
+  category: LexiconCategory;
+  noun?: NounEntry;
+  verb?: VerbEntry;
+  note?: string;
+}
+
+export interface DrillQuestionResult {
+  item: PracticeItem;
+  userAnswer: string;
+  correct: boolean;
+}
+
+export interface DrillLogEntry {
+  id: string;
+  completedAt: string;
+  category: PracticeCategory | "all";
+  questionCount: number;
+  score: number;
+  percentage: number;
+}
+
+export type FlashcardType = LexiconCategory | "grammar_term";
+export type FlashcardGroup =
+  | "all"
+  | "verbs"
+  | "modal_verbs"
+  | "nouns"
+  | "pronouns"
+  | "adjectives"
+  | "prepositions"
+  | "conjunctions"
+  | "grammar_terms"
+  | "articles"
+  | "particles"
+  | "numerals"
+  | "determiners"
+  | "adverbs"
+  | "names"
+  | "phrases"
+  | "demonstratives";
+export type DeckType = FlashcardGroup;
+export type FlashcardGrade = "again" | "hard" | "good" | "easy";
+
+export interface ConjugationTableCell {
+  label: string;
+  form: string;
+}
+
+export interface ConjugationTableRow {
+  left: ConjugationTableCell;
+  right: ConjugationTableCell;
+}
+
+export interface FlashcardExtra {
+  article?: "de" | "het";
+  gender?: "common" | "neuter";
+  irregular?: boolean;
+  modalVerb?: boolean;
+  pronounType?: "subject" | "unstressed" | "formal" | "plural" | "question";
+  conjugations?: ConjugationTableRow[];
+  tags?: string[];
+  note?: string;
+}
+
+export interface Flashcard {
+  id: string;
+  type: FlashcardType;
+  group: FlashcardGroup;
+  front: string;
+  back: string;
+  mastery: number;
+  queueDistance: number;
+  streak: number;
+  recentRatings: FlashcardGrade[];
+  extra?: FlashcardExtra;
+  easiness: number;
+  interval: number;
+  repetitions: number;
+  dueAt: string;
+  lastReviewedAt?: string;
+}
+
+export interface Feedback {
+  type: "ok" | "close" | "bad";
+  text: string;
+  diffTokens?: {
+    token: string;
+    status: "correct" | "missing" | "extra" | "replace";
+    actual?: string;
+  }[];
+  errorTypes?: import("../../lib/grammar-types").GrammarErrorType[];
+  details?: {
+    correctWord: string;
+    yourWord: string;
+    explanation: string;
+  }[];
+  inversionNote?: string;
 }
