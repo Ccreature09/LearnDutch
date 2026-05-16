@@ -642,8 +642,16 @@ export const verbDatabase: { [infinitive: string]: VerbMetadata } = {
 /**
  * Get metadata for a verb
  */
-export function getVerbMetadata(infinitive: string): VerbMetadata | undefined {
+export function getVerbMetadata(infinitive?: string | null): VerbMetadata | undefined {
+  if (typeof infinitive !== 'string') {
+    return undefined;
+  }
+
   const normalized = infinitive.toLowerCase().trim();
+  if (!normalized) {
+    return undefined;
+  }
+
   return verbDatabase[normalized];
 }
 
